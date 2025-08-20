@@ -7,7 +7,7 @@ export default function ShowUser({ user }) {
         <AdminLayout title="User Details">
             <Head title="User Details" />
 
-            <div className="mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mx-auto px-2 lg:px-8">
                 <div className="bg-white dark:bg-slate-800 rounded-lg shadow p-6">
                     <h2 className="text-xl font-semibold mb-6">User Details</h2>
 

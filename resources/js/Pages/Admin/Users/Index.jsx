@@ -1,16 +1,72 @@
-import React from 'react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { Head, Link, usePage, router } from '@inertiajs/react'; // Import router
 import AdminLayout from '@/Layouts/AdminLayout';
+import ConfirmationModal from '@/Components/ConfirmationModal';
+import { useToast } from '@/Contexts/ToastContext';
 
 export default function UsersIndex({ users }) {
     const { props } = usePage();
     const flash = props.flash || {};
+    const [deleteModal, setDeleteModal] = useState({
+        isOpen: false,
+        userId: null,
+        userName: '',
+    });
+    const { success, error } = useToast();
+
+    const openDeleteModal = (userId, userName) => {
+        setDeleteModal({
+            isOpen: true,
+            userId,
+            userName,
+        });
+    };
+
+    const closeDeleteModal = () => {
+        setDeleteModal({
+            isOpen: false,
+            userId: null,
+            userName: '',
+        });
+    };
+
+    const handleDelete = () => {
+        if (deleteModal.userId) {
+            // Gunakan router.delete() bukan Link.delete()
+            router.delete(route('admin.users.destroy', deleteModal.userId), {
+                onSuccess: () => {
+                    success('User deleted successfully!');
+                    closeDeleteModal();
+                },
+                onError: () => {
+                    error('Failed to delete user.');
+                    closeDeleteModal();
+                },
+                onFinish: () => {
+                    // Optional: cleanup jika diperlukan
+                }
+            });
+        } else {
+            closeDeleteModal();
+        }
+    };
 
     return (
         <AdminLayout title="Manage Users">
             <Head title="Manage Users" />
 
-            <div className="mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={deleteModal.isOpen}
+                onClose={closeDeleteModal}
+                onConfirm={handleDelete}
+                title="Confirm Delete"
+                message={`Are you sure you want to delete user "${deleteModal.userName}"? This action cannot be undone.`}
+                confirmText="Delete User"
+                cancelText="Cancel"
+            />
+
+            <div className="mx-auto px-1 lg:px-8">
                 {flash.success && (
                     <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
                         {flash.success}
@@ -72,15 +128,12 @@ export default function UsersIndex({ users }) {
                                                 >
                                                     Edit
                                                 </Link>
-                                                <Link 
-                                                    href={route('admin.users.destroy', user.id)}
-                                                    method="delete"
-                                                    as="button"
+                                                <button
+                                                    onClick={() => openDeleteModal(user.id, user.name)}
                                                     className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                                                    confirm="Are you sure you want to delete this user?"
                                                 >
                                                     Delete
-                                                </Link>
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
