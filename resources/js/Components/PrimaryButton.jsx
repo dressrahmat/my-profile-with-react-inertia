@@ -14,8 +14,8 @@ export default function PrimaryButton({
                 shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-900 
                 focus:outline-none focus:ring-3 focus:ring-blue-400 focus:ring-offset-2 
                 active:scale-[0.98] active:shadow-inner
-                disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none 
-                ${disabled && 'opacity-60 cursor-not-allowed'} ` + className
+                disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none
+                w-full md:w-auto ` + className
             }
             disabled={disabled}
         >
