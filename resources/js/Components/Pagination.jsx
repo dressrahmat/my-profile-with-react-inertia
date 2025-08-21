@@ -1,3 +1,4 @@
+// Components/Pagination.jsx
 import React from 'react';
 import { Link } from '@inertiajs/react';
 
@@ -5,12 +6,13 @@ const Pagination = ({
   data, 
   showingText = "Showing {from} to {to} of {total} results" 
 }) => {
-  if (!data.links || data.links.length <= 3) return null;
+  // Pastikan data dan links ada
+  if (!data || !data.links || data.links.length <= 3) return null;
 
   const showingTextFormatted = showingText
-    .replace('{from}', data.from)
-    .replace('{to}', data.to)
-    .replace('{total}', data.total);
+    .replace('{from}', data.from || 0)
+    .replace('{to}', data.to || 0)
+    .replace('{total}', data.total || 0);
 
   return (
     <div className="px-4 py-3 bg-gray-50 dark:bg-slate-700 border-t border-gray-200 dark:border-gray-600 sm:px-6">
@@ -23,6 +25,8 @@ const Pagination = ({
             <Link
               key={index}
               href={link.url || '#'}
+              preserveState
+              preserveScroll
               className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md ${
                 link.active
                   ? 'z-10 bg-indigo-600 text-white focus:z-20 focus:outline-none focus:ring-2 focus:ring-indigo-500'

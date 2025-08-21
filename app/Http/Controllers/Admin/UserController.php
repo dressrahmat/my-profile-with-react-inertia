@@ -16,6 +16,13 @@ class UserController extends Controller
         $search = $request->query('search');
         $sort = $request->query('sort', 'created_at');
         $direction = $request->query('direction', 'desc');
+        $perPage = $request->query('per_page', 10); // Tambahkan parameter per_page
+        
+        // Validasi per_page
+        $validPerPage = [5, 10, 15];
+        if (!in_array($perPage, $validPerPage)) {
+            $perPage = 10;
+        }
         
         // Validasi direction
         if (!in_array($direction, ['asc', 'desc'])) {
@@ -36,12 +43,12 @@ class UserController extends Controller
                 });
             })
             ->orderBy($sort, $direction)
-            ->paginate(10)
+            ->paginate($perPage) // Gunakan perPage yang dipilih
             ->withQueryString(); // Mempertahankan parameter query string
         
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
-            'filters' => $request->only(['search', 'sort', 'direction'])
+            'filters' => $request->only(['search', 'sort', 'direction', 'per_page']) // Tambahkan per_page ke filters
         ]);
     }
 

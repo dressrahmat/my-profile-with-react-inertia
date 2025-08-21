@@ -109,6 +109,29 @@ const RowActionsDropdown = ({ user, onView, onEdit, onDelete }) => {
   );
 };
 
+// Custom hook untuk menyimpan selected items di sessionStorage
+const usePersistedSelectedUsers = (initialValue = []) => {
+  const [selectedUsers, setSelectedUsers] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('selectedUsers');
+      return stored ? JSON.parse(stored) : initialValue;
+    } catch {
+      return initialValue;
+    }
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('selectedUsers', JSON.stringify(selectedUsers));
+  }, [selectedUsers]);
+
+  const clearSelectedUsers = useCallback(() => {
+    sessionStorage.removeItem('selectedUsers');
+    setSelectedUsers([]);
+  }, []);
+
+  return [selectedUsers, setSelectedUsers, clearSelectedUsers];
+};
+
 export default function UsersIndex({ users, filters: initialFilters }) {
   const { props } = usePage();
   const flash = props.flash || {};
@@ -121,52 +144,120 @@ export default function UsersIndex({ users, filters: initialFilters }) {
     isOpen: false,
     count: 0,
   });
-  const [selectedUsers, setSelectedUsers] = useState([]);
+  
+  // Gunakan custom hook untuk persisted selected users
+  const [selectedUsers, setSelectedUsers, clearSelectedUsers] = usePersistedSelectedUsers([]);
   const [selectAll, setSelectAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState(initialFilters?.search || '');
+  const [perPage, setPerPage] = useState(initialFilters?.per_page || 10);
   const [sortConfig, setSortConfig] = useState({
     key: initialFilters?.sort || 'created_at',
     direction: initialFilters?.direction || 'desc',
   });
   const { success, error } = useToast();
 
+  // Gunakan useRef untuk menyimpan nilai sebelumnya
+  const prevFiltersRef = useRef({
+    search: initialFilters?.search || '',
+    per_page: initialFilters?.per_page || 10,
+    sort: initialFilters?.sort || 'created_at',
+    direction: initialFilters?.direction || 'desc'
+  });
+
   // Debounced search implementation
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchTerm !== initialFilters?.search) {
-        router.get(route('admin.users.index'), 
-          { search: searchTerm, sort: sortConfig.key, direction: sortConfig.direction },
-          { preserveState: true, replace: true }
-        );
-      }
-    }, 500);
+    const currentFilters = {
+      search: searchTerm,
+      per_page: perPage,
+      sort: sortConfig.key,
+      direction: sortConfig.direction
+    };
 
-    return () => clearTimeout(timer);
-  }, [searchTerm, sortConfig, initialFilters?.search]);
+    // Bandingkan dengan nilai sebelumnya
+    const hasChanged = 
+      currentFilters.search !== prevFiltersRef.current.search ||
+      currentFilters.per_page !== prevFiltersRef.current.per_page ||
+      currentFilters.sort !== prevFiltersRef.current.sort ||
+      currentFilters.direction !== prevFiltersRef.current.direction;
+
+    if (hasChanged) {
+      const timer = setTimeout(() => {
+        router.get(route('admin.users.index'), 
+          { 
+            search: searchTerm, 
+            sort: sortConfig.key, 
+            direction: sortConfig.direction,
+            per_page: perPage
+          },
+          { 
+            preserveState: true, 
+            replace: true,
+            preserveScroll: true,
+            onFinish: () => {
+              // Update ref setelah request selesai
+              prevFiltersRef.current = currentFilters;
+              // JANGAN reset selectAll di sini, biarkan sync dengan selectedUsers
+            }
+          }
+        );
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [searchTerm, perPage, sortConfig]);
+
+  // Sync selectAll state dengan selected users di halaman saat ini
+  useEffect(() => {
+    if (users && users.data && selectedUsers.length > 0) {
+      const currentPageIds = users.data.map(user => user.id);
+      const allCurrentSelected = currentPageIds.every(id => selectedUsers.includes(id));
+      const someCurrentSelected = currentPageIds.some(id => selectedUsers.includes(id));
+      
+      // Jika semua item di halaman ini terpilih, set selectAll ke true
+      if (allCurrentSelected) {
+        setSelectAll(true);
+      } 
+      // Jika beberapa item terpilih (tidak semua), set selectAll ke false
+      else if (someCurrentSelected) {
+        setSelectAll(false);
+      }
+      // Jika tidak ada yang terpilih di halaman ini, set selectAll ke false
+      else {
+        setSelectAll(false);
+      }
+    } else {
+      setSelectAll(false);
+    }
+  }, [users, selectedUsers]);
 
   // Handle select/deselect all users
-  useEffect(() => {
-    if (selectAll && users && users.data) {
-      setSelectedUsers(users.data.map(user => user.id));
-    } else {
-      setSelectedUsers([]);
+  const handleSelectAll = useCallback(() => {
+    if (users && users.data) {
+      const currentPageIds = users.data.map(user => user.id);
+      
+      if (!selectAll) {
+        // Select all: tambahkan semua ID dari halaman saat ini
+        setSelectedUsers(prev => {
+          const newSelected = [...new Set([...prev, ...currentPageIds])];
+          return newSelected;
+        });
+      } else {
+        // Deselect all: hapus hanya ID yang ada di halaman saat ini
+        setSelectedUsers(prev => prev.filter(id => !currentPageIds.includes(id)));
+      }
     }
-  }, [selectAll, users]);
-
-  // Reset select all when users data changes
-  useEffect(() => {
-    setSelectAll(false);
-    setSelectedUsers([]);
-  }, [users]);
+  }, [selectAll, users, setSelectedUsers]);
 
   // Handle individual user selection
   const handleUserSelection = useCallback((userId) => {
-    if (selectedUsers.includes(userId)) {
-      setSelectedUsers(prev => prev.filter(id => id !== userId));
-    } else {
-      setSelectedUsers(prev => [...prev, userId]);
-    }
-  }, [selectedUsers]);
+    setSelectedUsers(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId);
+      } else {
+        return [...prev, userId];
+      }
+    });
+  }, [setSelectedUsers]);
 
   const openDeleteModal = useCallback((userId, userName) => {
     setDeleteModal({
@@ -204,6 +295,8 @@ export default function UsersIndex({ users, filters: initialFilters }) {
         onSuccess: () => {
           success('User deleted successfully!');
           closeDeleteModal();
+          // Hapus user yang dihapus dari selected users
+          setSelectedUsers(prev => prev.filter(id => id !== deleteModal.userId));
         },
         onError: () => {
           error('Failed to delete user.');
@@ -213,7 +306,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
     } else {
       closeDeleteModal();
     }
-  }, [deleteModal.userId, closeDeleteModal, success, error]);
+  }, [deleteModal.userId, closeDeleteModal, success, error, setSelectedUsers]);
 
   const handleBulkDelete = useCallback(() => {
     if (selectedUsers.length > 0) {
@@ -222,7 +315,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
       }, {
         onSuccess: () => {
           success(`${selectedUsers.length} user(s) deleted successfully!`);
-          setSelectedUsers([]);
+          clearSelectedUsers(); // Clear selected users setelah delete
           setSelectAll(false);
           closeBulkDeleteModal();
         },
@@ -232,7 +325,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
         }
       });
     }
-  }, [selectedUsers, closeBulkDeleteModal, success, error]);
+  }, [selectedUsers, closeBulkDeleteModal, success, error, clearSelectedUsers]);
 
   const handleExport = useCallback(() => {
     if (selectedUsers.length > 0) {
@@ -250,17 +343,35 @@ export default function UsersIndex({ users, filters: initialFilters }) {
   }, [selectedUsers, success, error]);
 
   const handleSort = useCallback((key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  }, [sortConfig]);
+    setSortConfig(prev => {
+      let direction = 'asc';
+      if (prev.key === key && prev.direction === 'asc') {
+        direction = 'desc';
+      }
+      return { key, direction };
+    });
+  }, []);
 
   const clearFilters = useCallback(() => {
     setSearchTerm('');
+    setPerPage(10);
     setSortConfig({ key: 'created_at', direction: 'desc' });
-    router.get(route('admin.users.index'), {}, { preserveState: true });
+    router.get(route('admin.users.index'), {}, { 
+      preserveState: true,
+      preserveScroll: true,
+      onSuccess: () => {
+        prevFiltersRef.current = {
+          search: '',
+          per_page: 10,
+          sort: 'created_at',
+          direction: 'desc'
+        };
+      }
+    });
+  }, []);
+
+  const handlePerPageChange = useCallback((newPerPage) => {
+    setPerPage(newPerPage);
   }, []);
 
   // Fungsi untuk mendapatkan ikon sort yang sesuai
@@ -279,7 +390,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
       key: 'name',
       label: 'Name',
       sortable: true,
-      onSort: handleSort,
+      onSort: () => handleSort('name'),
       sortIcon: getSortIcon('name'),
       render: (user) => (
         <div className="flex items-center">
@@ -302,7 +413,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
       key: 'email',
       label: 'Email',
       sortable: true,
-      onSort: handleSort,
+      onSort: () => handleSort('email'),
       sortIcon: getSortIcon('email'),
       render: (user) => (
         <div className="text-sm text-gray-900 dark:text-white">{user.email}</div>
@@ -312,7 +423,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
       key: 'created_at',
       label: 'Joined Date',
       sortable: true,
-      onSort: handleSort,
+      onSort: () => handleSort('created_at'),
       sortIcon: getSortIcon('created_at'),
       render: (user) => (
         <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -394,11 +505,15 @@ export default function UsersIndex({ users, filters: initialFilters }) {
         description="Manage all system users, their roles and permissions"
         createButton={createButton}
         filters={
-          <FilterSection
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            onClearFilters={clearFilters}
-          />
+          <div className="mb-6">
+            <FilterSection
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              perPage={perPage}
+              onPerPageChange={handlePerPageChange}
+              onClearFilters={clearFilters}
+            />
+          </div>
         }
       >
         {/* Flash Messages */}
@@ -437,27 +552,39 @@ export default function UsersIndex({ users, filters: initialFilters }) {
         )}
 
         {/* Bulk Actions */}
-        <BulkActions
-          selectedCount={selectedUsers.length}
-          onBulkDelete={openBulkDeleteModal}
-          onBulkExport={handleExport}
-        />
+        {selectedUsers.length > 0 && (
+          <div className="mb-6">
+            <BulkActions
+              selectedCount={selectedUsers.length}
+              onBulkDelete={openBulkDeleteModal}
+              onBulkExport={handleExport}
+              onClearSelection={() => {
+                clearSelectedUsers();
+                setSelectAll(false);
+              }}
+            />
+          </div>
+        )}
 
         {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={users.data}
-          selectedItems={selectedUsers}
-          onSelectItem={handleUserSelection}
-          onSelectAll={() => setSelectAll(!selectAll)}
-          selectAll={selectAll}
-          emptyState={emptyState}
-          rowActions={rowActions}
-          keyField="id"
-        />
+        <div className="mb-6">
+          <DataTable
+            columns={columns}
+            data={users?.data || []}
+            selectedItems={selectedUsers}
+            onSelectItem={handleUserSelection}
+            onSelectAll={handleSelectAll} // Gunakan handleSelectAll yang baru
+            selectAll={selectAll}
+            emptyState={emptyState}
+            rowActions={rowActions}
+            keyField="id"
+          />
+        </div>
 
-        {/* Pagination */}
-        <Pagination data={users} />
+        {/* Pagination - Pastikan users memiliki data */}
+        {users && users.data && users.data.length > 0 && users.links && users.links.length > 3 && (
+          <Pagination data={users} />
+        )}
       </CrudLayout>
     </AdminLayout>
   );
