@@ -1,5 +1,8 @@
 import React from 'react';
 import Checkbox from '@/Components/Checkbox';
+import { Menu, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
+import { FiMoreVertical, FiEye, FiEdit, FiTrash2 } from 'react-icons/fi';
 
 const DataTable = ({
   columns,
@@ -16,7 +19,7 @@ const DataTable = ({
     <div className="bg-white dark:bg-slate-800 shadow rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-slate-700">
+          <thead className="bg-gray-50 dark:bg-slate-700 sticky top-0 z-10">
             <tr>
               {/* Checkbox Column */}
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -46,7 +49,7 @@ const DataTable = ({
               ))}
               
               {/* Actions Column */}
-              <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+              <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider sticky right-0 bg-gray-50 dark:bg-slate-700">
                 Actions
               </th>
             </tr>
@@ -70,8 +73,8 @@ const DataTable = ({
                     </td>
                   ))}
                   
-                  {/* Actions Cell */}
-                  <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  {/* Actions Cell - Sticky dengan dropdown */}
+                  <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 z-5">
                     {rowActions(item)}
                   </td>
                 </tr>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import CrudLayout from '@/Components/CrudLayout';
@@ -13,6 +13,70 @@ import { FiEye, FiEdit, FiTrash2, FiSearch, FiPlus, FiX, FiUserPlus, FiChevronUp
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 
+// Komponen Dropdown Actions untuk setiap baris
+const RowActionsDropdown = ({ user, onView, onEdit, onDelete }) => {
+  return (
+    <Menu as="div" className="relative inline-block text-left">
+      <Menu.Button className="inline-flex justify-center w-full p-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
+        <FiMoreVertical className="h-4 w-4" aria-hidden="true" />
+      </Menu.Button>
+
+      <Transition
+        as={Fragment}
+        enter="transition ease-out duration-100"
+        enterFrom="transform opacity-0 scale-95"
+        enterTo="transform opacity-100 scale-100"
+        leave="transition ease-in duration-75"
+        leaveFrom="transform opacity-100 scale-100"
+        leaveTo="transform opacity-0 scale-95"
+      >
+        <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
+          <div className="py-1">
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={onView}
+                  className={`${
+                    active ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                  } group flex items-center w-full px-4 py-2 text-sm`}
+                >
+                  <FiEye className="mr-3 h-4 w-4" aria-hidden="true" />
+                  View
+                </button>
+              )}
+            </Menu.Item>
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={onEdit}
+                  className={`${
+                    active ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                  } group flex items-center w-full px-4 py-2 text-sm`}
+                >
+                  <FiEdit className="mr-3 h-4 w-4" aria-hidden="true" />
+                  Edit
+                </button>
+              )}
+            </Menu.Item>
+            <Menu.Item>
+              {({ active }) => (
+                <button
+                  onClick={onDelete}
+                  className={`${
+                    active ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'text-red-600 dark:text-red-400'
+                  } group flex items-center w-full px-4 py-2 text-sm`}
+                >
+                  <FiTrash2 className="mr-3 h-4 w-4" aria-hidden="true" />
+                  Delete
+                </button>
+              )}
+            </Menu.Item>
+          </div>
+        </Menu.Items>
+      </Transition>
+    </Menu>
+  );
+};
 
 export default function UsersIndex({ users, filters: initialFilters }) {
   const { props } = usePage();
@@ -47,7 +111,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchTerm, sortConfig]);
+  }, [searchTerm, sortConfig, initialFilters?.search]);
 
   // Handle select/deselect all users
   useEffect(() => {
@@ -56,7 +120,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
     } else {
       setSelectedUsers([]);
     }
-  }, [selectAll]);
+  }, [selectAll, users]);
 
   // Reset select all when users data changes
   useEffect(() => {
@@ -65,45 +129,45 @@ export default function UsersIndex({ users, filters: initialFilters }) {
   }, [users]);
 
   // Handle individual user selection
-  const handleUserSelection = (userId) => {
+  const handleUserSelection = useCallback((userId) => {
     if (selectedUsers.includes(userId)) {
-      setSelectedUsers(selectedUsers.filter(id => id !== userId));
+      setSelectedUsers(prev => prev.filter(id => id !== userId));
     } else {
-      setSelectedUsers([...selectedUsers, userId]);
+      setSelectedUsers(prev => [...prev, userId]);
     }
-  };
+  }, [selectedUsers]);
 
-  const openDeleteModal = (userId, userName) => {
+  const openDeleteModal = useCallback((userId, userName) => {
     setDeleteModal({
       isOpen: true,
       userId,
       userName,
     });
-  };
+  }, []);
 
-  const openBulkDeleteModal = () => {
+  const openBulkDeleteModal = useCallback(() => {
     setBulkDeleteModal({
       isOpen: true,
       count: selectedUsers.length,
     });
-  };
+  }, [selectedUsers.length]);
 
-  const closeDeleteModal = () => {
+  const closeDeleteModal = useCallback(() => {
     setDeleteModal({
       isOpen: false,
       userId: null,
       userName: '',
     });
-  };
+  }, []);
 
-  const closeBulkDeleteModal = () => {
+  const closeBulkDeleteModal = useCallback(() => {
     setBulkDeleteModal({
       isOpen: false,
       count: 0,
     });
-  };
+  }, []);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (deleteModal.userId) {
       router.delete(route('admin.users.destroy', deleteModal.userId), {
         onSuccess: () => {
@@ -118,9 +182,9 @@ export default function UsersIndex({ users, filters: initialFilters }) {
     } else {
       closeDeleteModal();
     }
-  };
+  }, [deleteModal.userId, closeDeleteModal, success, error]);
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = useCallback(() => {
     if (selectedUsers.length > 0) {
       router.post(route('admin.users.bulk-destroy'), {
         ids: selectedUsers
@@ -137,9 +201,9 @@ export default function UsersIndex({ users, filters: initialFilters }) {
         }
       });
     }
-  };
+  }, [selectedUsers, closeBulkDeleteModal, success, error]);
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     if (selectedUsers.length > 0) {
       router.post(route('admin.users.export'), {
         ids: selectedUsers
@@ -152,34 +216,34 @@ export default function UsersIndex({ users, filters: initialFilters }) {
         }
       });
     }
-  };
+  }, [selectedUsers, success, error]);
 
-  const handleSort = (key) => {
+  const handleSort = useCallback((key) => {
     let direction = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
-  };
+  }, [sortConfig]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearchTerm('');
     setSortConfig({ key: 'created_at', direction: 'desc' });
     router.get(route('admin.users.index'), {}, { preserveState: true });
-  };
+  }, []);
 
   // Fungsi untuk mendapatkan ikon sort yang sesuai
-  const getSortIcon = (key) => {
+  const getSortIcon = useCallback((key) => {
     if (sortConfig.key !== key) {
       return <FiChevronUp className="ml-1 h-4 w-4 opacity-50" />;
     }
     return sortConfig.direction === 'asc' 
       ? <FiChevronUp className="ml-1 h-4 w-4" /> 
       : <FiChevronDown className="ml-1 h-4 w-4" />;
-  };
+  }, [sortConfig]);
 
   // Kolom untuk DataTable
-  const columns = [
+  const columns = useMemo(() => [
     {
       key: 'name',
       label: 'Name',
@@ -229,10 +293,10 @@ export default function UsersIndex({ users, filters: initialFilters }) {
         </div>
       )
     }
-  ];
+  ], [handleSort, getSortIcon]);
 
   // Empty state component
-  const emptyState = (
+  const emptyState = useMemo(() => (
     <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
       <FiUserPlus className="h-12 w-12 mb-3 opacity-50" />
       <p className="text-lg font-medium">No users found</p>
@@ -246,44 +310,27 @@ export default function UsersIndex({ users, filters: initialFilters }) {
         </Link>
       </div>
     </div>
-  );
+  ), []);
 
-  // Row actions
-  const rowActions = (user) => (
-    <div className="flex justify-end space-x-2">
-      <Link 
-        href={route('admin.users.show', user.id)}
-        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 p-1 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
-        title="View user"
-      >
-        <FiEye className="h-5 w-5" />
-      </Link>
-      <Link 
-        href={route('admin.users.edit', user.id)}
-        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30"
-        title="Edit user"
-      >
-        <FiEdit className="h-5 w-5" />
-      </Link>
-      <button
-        onClick={() => openDeleteModal(user.id, user.name)}
-        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30"
-        title="Delete user"
-      >
-        <FiTrash2 className="h-5 w-5" />
-      </button>
-    </div>
-  );
+  // Row actions dengan dropdown
+  const rowActions = useCallback((user) => (
+    <RowActionsDropdown
+      user={user}
+      onView={() => router.visit(route('admin.users.show', user.id))}
+      onEdit={() => router.visit(route('admin.users.edit', user.id))}
+      onDelete={() => openDeleteModal(user.id, user.name)}
+    />
+  ), [openDeleteModal]);
 
   // Create button
-  const createButton = (
+  const createButton = useMemo(() => (
     <Link href={route('admin.users.create')}>
       <PrimaryButton className="flex items-center">
         <FiUserPlus className="mr-2 h-5 w-5" />
         Add User
       </PrimaryButton>
     </Link>
-  );
+  ), []);
 
   return (
     <AdminLayout title="Manage Users">
