@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Head, Link, usePage, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import CrudLayout from '@/Components/CrudLayout';
@@ -12,69 +12,100 @@ import { useToast } from '@/Contexts/ToastContext';
 import { FiEye, FiEdit, FiTrash2, FiSearch, FiPlus, FiX, FiUserPlus, FiChevronUp, FiChevronDown, FiDownload, FiMoreVertical } from 'react-icons/fi';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import { createPortal } from 'react-dom';
+
+// Komponen Dropdown dengan Portal untuk merender di luar hierarchy tabel
+const PortalDropdown = ({ trigger, children, position = 'bottom-right' }) => {
+  const [positionData, setPositionData] = useState({ top: 0, left: 0, width: 0 });
+  const triggerRef = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const updatePosition = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPositionData({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
+  const getPositionClass = () => {
+    switch (position) {
+      case 'bottom-left':
+        return 'origin-top-left left-0';
+      case 'bottom-right':
+        return 'origin-top-right right-0';
+      default:
+        return 'origin-top-right right-0';
+    }
+  };
+
+  return (
+    <>
+      <div ref={triggerRef} onClick={() => {
+        updatePosition();
+        setIsOpen(true);
+      }}>
+        {trigger}
+      </div>
+
+      {isOpen && createPortal(
+        <div className="fixed inset-0 z-50" onClick={() => setIsOpen(false)}>
+          <div 
+            className={`absolute mt-1 w-48 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 focus:outline-none ${getPositionClass()}`}
+            style={{
+              top: positionData.top,
+              left: position === 'bottom-right' ? 'auto' : positionData.left,
+              right: position === 'bottom-right' ? window.innerWidth - positionData.left - positionData.width : 'auto',
+              zIndex: 9999
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {children}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
 
 // Komponen Dropdown Actions untuk setiap baris
 const RowActionsDropdown = ({ user, onView, onEdit, onDelete }) => {
-  return (
-    <Menu as="div" className="relative inline-block text-left">
-      <Menu.Button className="inline-flex justify-center w-full p-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
-        <FiMoreVertical className="h-4 w-4" aria-hidden="true" />
-      </Menu.Button>
+  const trigger = (
+    <button className="inline-flex justify-center w-full p-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-slate-700 rounded-md hover:bg-gray-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 focus:ring-indigo-500">
+      <FiMoreVertical className="h-4 w-4" aria-hidden="true" />
+    </button>
+  );
 
-      <Transition
-        as={Fragment}
-        enter="transition ease-out duration-100"
-        enterFrom="transform opacity-0 scale-95"
-        enterTo="transform opacity-100 scale-100"
-        leave="transition ease-in duration-75"
-        leaveFrom="transform opacity-100 scale-100"
-        leaveTo="transform opacity-0 scale-95"
-      >
-        <Menu.Items className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-slate-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-20">
-          <div className="py-1">
-            <Menu.Item>
-              {({ active }) => (
-                <button
-                  onClick={onView}
-                  className={`${
-                    active ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
-                  } group flex items-center w-full px-4 py-2 text-sm`}
-                >
-                  <FiEye className="mr-3 h-4 w-4" aria-hidden="true" />
-                  View
-                </button>
-              )}
-            </Menu.Item>
-            <Menu.Item>
-              {({ active }) => (
-                <button
-                  onClick={onEdit}
-                  className={`${
-                    active ? 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
-                  } group flex items-center w-full px-4 py-2 text-sm`}
-                >
-                  <FiEdit className="mr-3 h-4 w-4" aria-hidden="true" />
-                  Edit
-                </button>
-              )}
-            </Menu.Item>
-            <Menu.Item>
-              {({ active }) => (
-                <button
-                  onClick={onDelete}
-                  className={`${
-                    active ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'text-red-600 dark:text-red-400'
-                  } group flex items-center w-full px-4 py-2 text-sm`}
-                >
-                  <FiTrash2 className="mr-3 h-4 w-4" aria-hidden="true" />
-                  Delete
-                </button>
-              )}
-            </Menu.Item>
-          </div>
-        </Menu.Items>
-      </Transition>
-    </Menu>
+  return (
+    <PortalDropdown trigger={trigger} position="bottom-right">
+      <div className="py-1">
+        <button
+          onClick={onView}
+          className="group flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white"
+        >
+          <FiEye className="mr-3 h-4 w-4" aria-hidden="true" />
+          View
+        </button>
+        <button
+          onClick={onEdit}
+          className="group flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white"
+        >
+          <FiEdit className="mr-3 h-4 w-4" aria-hidden="true" />
+          Edit
+        </button>
+        <button
+          onClick={onDelete}
+          className="group flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-300"
+        >
+          <FiTrash2 className="mr-3 h-4 w-4" aria-hidden="true" />
+          Delete
+        </button>
+      </div>
+    </PortalDropdown>
   );
 };
 

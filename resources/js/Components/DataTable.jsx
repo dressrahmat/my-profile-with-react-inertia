@@ -16,7 +16,7 @@ const DataTable = ({
   keyField = 'id'
 }) => {
   return (
-    <div className="bg-white dark:bg-slate-800 shadow rounded-lg overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 shadow rounded-lg overflow-hidden mb-20">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-slate-700 sticky top-0 z-10">
