@@ -10,12 +10,38 @@ use Inertia\Inertia;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::latest()->paginate(10);
+        // Ambil parameter dari request
+        $search = $request->query('search');
+        $sort = $request->query('sort', 'created_at');
+        $direction = $request->query('direction', 'desc');
+        
+        // Validasi direction
+        if (!in_array($direction, ['asc', 'desc'])) {
+            $direction = 'desc';
+        }
+        
+        // Validasi sort column
+        $validSortColumns = ['name', 'email', 'created_at'];
+        if (!in_array($sort, $validSortColumns)) {
+            $sort = 'created_at';
+        }
+        
+        // Query users dengan pencarian dan pengurutan
+        $users = User::when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy($sort, $direction)
+            ->paginate(10)
+            ->withQueryString(); // Mempertahankan parameter query string
         
         return Inertia::render('Admin/Users/Index', [
-            'users' => $users
+            'users' => $users,
+            'filters' => $request->only(['search', 'sort', 'direction'])
         ]);
     }
 
@@ -85,5 +111,62 @@ class UserController extends Controller
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User deleted successfully.');
+    }
+
+    /**
+     * Bulk delete users
+     */
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:users,id'
+        ]);
+
+        User::whereIn('id', $request->ids)->delete();
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Selected users deleted successfully.');
+    }
+
+    /**
+     * Export users (basic implementation - can be extended)
+     */
+    public function export(Request $request)
+    {
+        $request->validate([
+            'ids' => 'nullable|array',
+            'ids.*' => 'exists:users,id'
+        ]);
+
+        $users = $request->has('ids') 
+            ? User::whereIn('id', $request->ids)->get()
+            : User::all();
+
+        // Untuk sekarang hanya return data JSON
+        // Bisa dikembangkan menjadi CSV/Excel export
+        return response()->json([
+            'users' => $users,
+            'message' => 'Export functionality can be implemented further'
+        ]);
+    }
+
+    /**
+     * Bulk update users (optional - for future features)
+     */
+    public function bulkUpdate(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:users,id',
+            'field' => 'required|string|in:status,role', // contoh field yang bisa diupdate
+            'value' => 'required' // nilai baru
+        ]);
+
+        User::whereIn('id', $request->ids)
+            ->update([$request->field => $request->value]);
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Selected users updated successfully.');
     }
 }

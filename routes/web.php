@@ -33,6 +33,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        Route::post('/users/bulk-destroy', [UserController::class, 'bulkDestroy'])->name('users.bulk-destroy');
+        Route::post('/users/export', [UserController::class, 'export'])->name('users.export');
+        Route::put('/users/bulk-update', [UserController::class, 'bulkUpdate'])->name('users.bulk-update');
     });
 });
 
