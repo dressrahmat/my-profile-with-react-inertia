@@ -149,7 +149,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
   const [selectedUsers, setSelectedUsers, clearSelectedUsers] = usePersistedSelectedUsers([]);
   const [selectAll, setSelectAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState(initialFilters?.search || '');
-  const [perPage, setPerPage] = useState(initialFilters?.per_page || 10);
+  const [perPage, setPerPage] = useState(initialFilters?.per_page || 5);
   const [sortConfig, setSortConfig] = useState({
     key: initialFilters?.sort || 'created_at',
     direction: initialFilters?.direction || 'desc',
@@ -159,7 +159,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
   // Gunakan useRef untuk menyimpan nilai sebelumnya
   const prevFiltersRef = useRef({
     search: initialFilters?.search || '',
-    per_page: initialFilters?.per_page || 10,
+    per_page: initialFilters?.per_page || 5,
     sort: initialFilters?.sort || 'created_at',
     direction: initialFilters?.direction || 'desc'
   });
@@ -354,7 +354,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
 
   const clearFilters = useCallback(() => {
     setSearchTerm('');
-    setPerPage(10);
+    setPerPage(5);
     setSortConfig({ key: 'created_at', direction: 'desc' });
     router.get(route('admin.users.index'), {}, { 
       preserveState: true,
@@ -362,7 +362,7 @@ export default function UsersIndex({ users, filters: initialFilters }) {
       onSuccess: () => {
         prevFiltersRef.current = {
           search: '',
-          per_page: 10,
+          per_page: 5,
           sort: 'created_at',
           direction: 'desc'
         };

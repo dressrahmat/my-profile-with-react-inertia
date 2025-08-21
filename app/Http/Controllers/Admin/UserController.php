@@ -16,12 +16,12 @@ class UserController extends Controller
         $search = $request->query('search');
         $sort = $request->query('sort', 'created_at');
         $direction = $request->query('direction', 'desc');
-        $perPage = $request->query('per_page', 10); // Tambahkan parameter per_page
+        $perPage = $request->query('per_page', 5); // Tambahkan parameter per_page
         
         // Validasi per_page
         $validPerPage = [5, 10, 15];
         if (!in_array($perPage, $validPerPage)) {
-            $perPage = 10;
+            $perPage = 5;
         }
         
         // Validasi direction
